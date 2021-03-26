@@ -1,12 +1,19 @@
 package com.example.mycountdowntimer
 
+import android.media.AudioAttributes
+import android.media.SoundPool
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.view.View
+import android.widget.AdapterView
+import android.widget.Spinner
 import com.example.mycountdowntimer.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
+    private lateinit var soundPool: SoundPool
+    private var soundResId = 0
 
     inner class MyCountDownTimer(millisInFuture: Long,
                                  countDownInterval: Long
@@ -21,6 +28,7 @@ class MainActivity : AppCompatActivity() {
 
         override fun onFinish() {
             binding.timerText.text = "0:00"
+            soundPool.play(soundResId, 1.0f, 1.0f, 0,0, 1.0f)
         }
     }
 
@@ -29,13 +37,14 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.timerText.text = "3:00"
+        binding.timerText.text = binding.spinner.selectedItem as String
         var timer = MyCountDownTimer(3 * 60 * 1000, 100)
+
         binding.playStop.setOnClickListener {
             timer.isRunning = when (timer.isRunning) {
                 true -> {
                     timer.cancel()
-                    binding.timerText.text = "3:00"
+                    binding.timerText.text = binding.spinner.selectedItem as String
                     binding.playStop.setImageResource(
                         R.drawable.ic_baseline_play_arrow_24
                     )
@@ -50,5 +59,51 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        binding.spinner.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: View?,
+                    position: Int,
+                    id: Long
+                ) {
+                    timer.cancel()
+                    binding.playStop.setImageResource(
+                        R.drawable.ic_baseline_play_arrow_24
+                    )
+                    val spinner = parent as? Spinner
+                    val item = spinner?.selectedItem as? String
+                    item?.let {
+                        if (it.isNotEmpty()) binding.timerText.text = it
+                        val times = it.split(":")
+                        val min = times[0].toLong()
+                        val sec = times[1].toLong()
+                        timer = MyCountDownTimer((min * 60 + sec) * 1000, 100)
+                    }
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) { }
+            }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        soundPool =
+            SoundPool.Builder().run {
+                val audioAttributes = AudioAttributes.Builder().run {
+                    setUsage(AudioAttributes.USAGE_ALARM)
+                    build()
+                }
+                setMaxStreams(1)
+                setAudioAttributes(audioAttributes)
+                build()
+            }
+        soundResId = soundPool.load(this, R.raw.bellsound, 1)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        soundPool.release()
     }
 }
